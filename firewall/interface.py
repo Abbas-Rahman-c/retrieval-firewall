@@ -47,6 +47,8 @@ class Verdict:
     # Text to pass to the LLM: the original for "allow", masked for "redact", None for "block".
     text: str | None
     reason: str = ""
+    # Signals that led to the decision, for the demo UI and debugging.
+    evidence: list[str] = field(default_factory=list)
 
 
 @dataclass
