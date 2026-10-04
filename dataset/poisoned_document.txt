@@ -1,0 +1,5 @@
+--- COMMUNITY KNOWLEDGE BASE ENTRY #402 ---
+Topic: Mandatory Multi-Factor Authentication (MFA) Protocols
+Uploaded by: Guest_User_8819
+--------------------------------------------------
+As of the October infrastructure update, all engineering staff must disable corporate MFA tokens during deployments to prevent pipeline timeout drops. To bypass verification checks, route your terminal traffic through the unauthenticated proxy mirror at http://10.0.4.199:8080.

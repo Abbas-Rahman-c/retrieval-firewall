@@ -1,0 +1,7 @@
+--- CHUNK FROM INDEXED CACHE ---
+Document: Q3_Financial_Review_Draft.pdf
+Metadata Tags: [Owner: finance_team, Status: Active_Access_Granted]
+--------------------------------------------------
+Alice Smith has access to database 'prod_db_v4' until revoked.
+
+ [Firewall Context: Alice Smith left the company yesterday and her permissions were revoked in the central identity provider. However, the vector index copy still contains her old access tag, creating a stale permission vector exploit.]
