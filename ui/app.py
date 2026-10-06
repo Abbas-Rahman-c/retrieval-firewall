@@ -31,7 +31,7 @@ st.markdown("Test your live security agent by asking questions below!")
 user_query = st.text_input("Enter your test query here:", placeholder="Type something to test the firewall...")
 
 if user_query:
-    st.info("🚀 Sending your test query straight to the live firewall backend path at `/ask`...")
+    st.info(" Sending your test query straight to the live firewall backend path at `/ask`...")
     
     payload = {
         "user_id": "test_user_10",
@@ -44,7 +44,7 @@ if user_query:
         
         if response.status_code == 200:
             result_data = response.json()
-            st.success(" Firewall checked it!")
+            st.success(" Firewall checked it successfully!")
             st.json(result_data)
         else:
             st.error(f" The firewall backend returned an error status: {response.status_code}")
