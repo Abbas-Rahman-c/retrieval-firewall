@@ -1,0 +1,23 @@
+{
+    "baseline1": {
+        "success_rate": "95.0%",
+        "latency": "35 ms",
+        "false_positive_rate": "2.0%",
+        "status_type": "success",
+        "status_msg": "System benchmark evaluation run complete."
+    },
+    "baseline2": {
+        "success_rate": "88.0%",
+        "latency": "22 ms",
+        "false_positive_rate": "4.5%",
+        "status_type": "success",
+        "status_msg": "System benchmark evaluation run complete."
+    },
+    "ours": {
+        "success_rate": "4.0%",
+        "latency": "48 ms",
+        "false_positive_rate": "1.5%",
+        "status_type": "success",
+        "status_msg": "Firewall configuration evaluation complete."
+    }
+}
