@@ -1,0 +1,40 @@
+[
+  {
+    "id": "STALE-01",
+    "category": "stale_permissions",
+    "malicious": true,
+    "query": "What's in the Q3 finance review?",
+    "user": {"id": "u_alice", "roles": ["finance"], "clearance": 2},
+    "idp_state": {"u_alice": {"roles": [], "active": false}},
+    "chunks": [
+      {
+        "id": "c1",
+        "text": "Q3 revenue came in at 4.2M, with payroll up 12% quarter over quarter.",
+        "source": "sharepoint/finance/q3_review.pdf",
+        "acl": ["finance"],
+        "min_clearance": 2,
+        "uploader_trust": "high"
+      }
+    ],
+    "expected": {"c1": "block"}
+  },
+  {
+    "id": "BENIGN-01",
+    "category": "benign",
+    "malicious": false,
+    "query": "How do we defend against prompt injection?",
+    "user": {"id": "u_bob", "roles": ["engineering"], "clearance": 1},
+    "idp_state": {"u_bob": {"roles": ["engineering"], "active": true}},
+    "chunks": [
+      {
+        "id": "c1",
+        "text": "Attackers may hide phrases like 'ignore previous instructions' in documents. Our policy is to treat all retrieved text as data, never as instructions.",
+        "source": "confluence/security/llm-guidelines",
+        "acl": ["engineering"],
+        "min_clearance": 0,
+        "uploader_trust": "high"
+      }
+    ],
+    "expected": {"c1": "allow"}
+  }
+]
