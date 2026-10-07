@@ -10,23 +10,39 @@ Built for the Nebius x NVIDIA hackathon (Agents track).
 
 ## Layout
 
-| Folder | What lives there | Owner |
-| --- | --- | --- |
-| `firewall/` | The agent: checks, judge, policy rules, API | Person A |
-| `locus_mock/` | Mock Locus AI retrieval API with fake data for the demo | Person A |
-| `dataset/` | Red-team attack documents and queries, plus benign controls | Person B |
-| `benchmark/` | Harness comparing baselines vs. the firewall | Person B |
-| `ui/` | Streamlit demo | Person B |
+| Folder | What lives there |
+| --- | --- |
+| `firewall/` | The agent: checks, LLM judges, policy, baselines |
+| `locus_mock/` | Mock RAG workspace API with fictional data for the demo |
+| `dataset/` | `build_cases.py` → `cases.json`: 149 attack and benign cases, split dev/test |
+| `benchmark/` | `run.py`: runs every setup over the dataset and writes `results.json` |
+| `ui/` | Streamlit demo: side-by-side playground and benchmark results |
 
 ## Setup
 
 ```bash
 python -m venv .venv
 .venv/Scripts/pip install -r requirements.txt pytest   # bin/ instead of Scripts/ on macOS/Linux
-cp .env.example .env   # fill in your keys
-python scripts/list_models.py   # pick FIREWALL_MODEL from this list
+cp .env.example .env   # optional: add keys to enable the LLM judges
 python -m pytest -q
 ```
+
+Run the demo and the benchmark:
+
+```bash
+streamlit run ui/app.py           # http://localhost:8501
+python benchmark/run.py           # rebuild the dataset first with: python dataset/build_cases.py
+```
+
+## Benchmark
+
+`benchmark/run.py` runs each setup through the same `inspect()` call on every case and grades the verdicts:
+
+- **Attack success rate:** attack cases where a malicious chunk (or a secret string) still reached the LLM.
+- **False-positive rate:** benign cases where any chunk was blocked or altered.
+- **Latency:** p50 / p95 per request.
+
+Cases alternate into a **dev** split, used to tune the rules, and a held-out **test** split, which is what we report. About half the cases reuse attack strings and questions written independently of the firewall, and results are broken down by origin. Current numbers are in [`results.json`](results.json).
 
 ## How the firewall works
 
