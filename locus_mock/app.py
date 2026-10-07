@@ -1,24 +1,28 @@
-"""Mock RAG workspace API with the retrieval firewall in front of it.
+"""Mock RAG workspace API with the retrieval firewall in front of it, plus the demo site.
 
 Run:  uvicorn locus_mock.app:app --reload --port 8000
-Docs: http://localhost:8000/docs
+Site: http://localhost:8000      Docs: http://localhost:8000/docs
 """
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import asdict
+from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from firewall import AllowAll, MetadataFilter, MetadataPlusGuard, RetrievalFirewall
 
 from .store import Workspace
 
-load_dotenv()
+ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / ".env")
 
 Mode = Literal["none", "baseline1", "baseline2", "firewall"]
 
@@ -108,7 +112,20 @@ def ask(req: AskRequest):
     }
 
 
+@app.get("/results")
+def results():
+    """Latest benchmark results written by benchmark/run.py."""
+    path = ROOT / "results.json"
+    if not path.exists():
+        raise HTTPException(404, "no results yet; run python benchmark/run.py")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def _user(user_id: str):
     if user_id not in workspace.users:
         raise HTTPException(404, f"unknown user {user_id!r}")
     return workspace.users[user_id]
+
+
+# The demo site. Mounted last so the API routes above take precedence.
+app.mount("/", StaticFiles(directory=ROOT / "web", html=True), name="web")

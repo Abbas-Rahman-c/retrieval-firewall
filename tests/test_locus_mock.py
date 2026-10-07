@@ -73,6 +73,18 @@ def test_aggregation_judge_via_api(client, monkeypatch):
     assert body["stats"]["llm_calls"] == 1
 
 
+def test_site_and_results_are_served(client):
+    page = client.get("/")
+    assert page.status_code == 200 and "Sieve" in page.text
+    assert client.get("/app.js").status_code == 200
+    results = client.get("/results").json()
+    assert "firewall" in results["setups"]
+
+
+def test_samples_have_tags_for_the_ui(client):
+    assert all(s.get("tag") for s in client.get("/samples").json())
+
+
 def test_unknown_user_404(client):
     assert client.post("/ask", json={"user_id": "nobody", "query": "x"}).status_code == 404
 
