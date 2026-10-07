@@ -29,13 +29,13 @@ def _entities(text: str) -> set[str]:
     return ents
 
 
-def aggregation_risk(texts: dict[str, str]) -> tuple[bool, list[str]]:
-    """Return (should_judge, evidence) for a set of chunk texts keyed by chunk id."""
+def aggregation_risk(texts: dict[str, str]) -> tuple[bool, list[str], list[str]]:
+    """Return (should_judge, evidence, sensitive chunk ids that link to another chunk)."""
     if len(texts) < 2:
-        return False, []
+        return False, [], []
     sensitive_ids = [cid for cid, t in texts.items() if _SENSITIVE.search(t)]
     if not sensitive_ids:
-        return False, []
+        return False, [], []
 
     seen: dict[str, set[str]] = defaultdict(set)
     for cid, t in texts.items():
@@ -43,5 +43,10 @@ def aggregation_risk(texts: dict[str, str]) -> tuple[bool, list[str]]:
             seen[e].add(cid)
     shared = sorted(e for e, ids in seen.items() if len(ids) >= 2)
     if not shared:
-        return False, []
-    return True, [f"shared entities: {', '.join(shared[:5])}", f"sensitive chunks: {', '.join(sensitive_ids)}"]
+        return False, [], []
+    linked = {cid for e in shared for cid in seen[e]}
+    candidates = [cid for cid in sensitive_ids if cid in linked]
+    if not candidates:
+        return False, [], []
+    evidence = [f"shared entities: {', '.join(shared[:5])}", f"sensitive linked chunks: {', '.join(candidates)}"]
+    return True, evidence, candidates

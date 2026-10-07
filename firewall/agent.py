@@ -40,12 +40,14 @@ class Policy:
     injection_offline_block_at: float = 0.5
     # Poisoning risk bands (high-trust sources are never flagged for poisoning).
     poison_escalate_at: float = 0.35
-    poison_offline_block_at: float = 0.6
+    poison_offline_block_at: float = 0.5
     llm_min_confidence: float = 0.6
     pii_allowed_roles: frozenset[str] = frozenset({"hr"})
     trusted_domains: frozenset[str] = frozenset()
     # Users at or above this clearance may combine anything they can read.
     aggregation_exempt_clearance: int = 3
+    # Without an LLM to judge, withhold sensitive chunks that link to others.
+    aggregation_fail_closed: bool = True
     max_llm_calls: int = 6
 
 
@@ -229,13 +231,17 @@ class RetrievalFirewall:
         if user.clearance >= self.policy.aggregation_exempt_clearance:
             return
         visible = {s.chunk.id: s for s in states if s.action != "block"}
-        risky, why = aggregation_risk({cid: s.text for cid, s in visible.items()})
+        risky, why, candidates = aggregation_risk({cid: s.text for cid, s in visible.items()})
         if not risky:
             return
         if not self.llm or self._budget <= 0:
-            self._log("aggregation", None, f"possible aggregation risk not judged (no LLM budget): {'; '.join(why)}")
-            for s in visible.values():
-                s.evidence.append("aggregation risk detected but not judged")
+            if self.policy.aggregation_fail_closed:
+                for cid in candidates:
+                    visible[cid].block("aggregation risk: sensitive chunk links to others and no judge was available")
+            else:
+                for s in visible.values():
+                    s.evidence.append("aggregation risk detected but not judged")
+            self._log("aggregation", None, f"not judged (no LLM budget), fail_closed={self.policy.aggregation_fail_closed}: {'; '.join(why)}")
             return
 
         self._budget -= 1

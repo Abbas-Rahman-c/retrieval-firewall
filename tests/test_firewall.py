@@ -208,9 +208,13 @@ def test_aggregation_skipped_for_high_clearance():
     fw.inspect("q", boss, AGG, {"u_boss": IdentityState(["engineering"])})
 
 
-def test_aggregation_not_judged_without_llm_is_recorded():
-    fw = firewall()
-    verdicts = fw.inspect("q", ENG, AGG, ENG_IDP)
+def test_aggregation_without_llm_fails_closed_on_the_sensitive_link():
+    verdicts = firewall().inspect("q", ENG, AGG, ENG_IDP)
+    assert actions(verdicts) == {"a": "allow", "b": "block", "c": "allow"}
+
+
+def test_aggregation_without_llm_can_be_left_open():
+    verdicts = firewall(aggregation_fail_closed=False).inspect("q", ENG, AGG, ENG_IDP)
     assert all(v.action == "allow" for v in verdicts)
     assert any("not judged" in e for v in verdicts for e in v.evidence)
 
