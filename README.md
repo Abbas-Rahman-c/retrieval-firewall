@@ -1,6 +1,10 @@
-# Retrieval Firewall
+# Sieve
 
-A security agent that sits between a RAG retriever and the LLM. It inspects every retrieved chunk before the model sees it and blocks or redacts anything unsafe: prompt injection, aggregation leaks, stale permissions, secrets/PII and poisoned documents.
+![Sieve](docs/thumbnail.png)
+
+**Catches the bad chunks before your LLM reads them.**
+
+Sieve is a security agent that sits between a RAG retriever and the LLM. It inspects every retrieved chunk before the model sees it and blocks or redacts anything unsafe: prompt injection, aggregation leaks, stale permissions, secrets/PII and poisoned documents.
 
 Built for the Nebius x NVIDIA hackathon (Agents track).
 

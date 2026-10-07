@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --ink: #0F1112;
+    --cream: #EEE9DE;
+    --red: #FF4A3D;
+    --grey: #80868B;
+  }
+  html, body { margin: 0; }
+  body {
+    width: 1200px; height: 800px; overflow: hidden; position: relative;
+    background: var(--ink);
+  }
+  #word {
+    position: absolute; left: 0; right: 0; top: 205px;
+    text-align: center; white-space: nowrap;
+    font-family: Bahnschrift, "Segoe UI", sans-serif; font-weight: 600;
+    font-size: 330px; line-height: 1; letter-spacing: -0.02em;
+    color: var(--cream);
+  }
+  #base { display: inline-block; width: 0; height: 0; }
+  #rule {
+    position: absolute; left: 0; right: 0; height: 8px;
+    background: repeating-linear-gradient(90deg, var(--cream) 0 44px, transparent 44px 66px);
+  }
+  .bit { position: absolute; background: var(--cream); }
+  #tittle { position: absolute; background: var(--red); transform: rotate(-7deg); }
+  #tagline {
+    position: absolute; left: 0; right: 0; bottom: 196px; text-align: center;
+    font-family: Consolas, monospace; font-size: 25px; letter-spacing: 0.02em; color: var(--grey);
+  }
+</style>
+</head>
+<body>
+  <div id="rule"></div>
+  <div id="word">s<span id="i">ı</span>eve<span id="base"></span></div>
+  <div id="tittle"></div>
+  <div id="tagline">catches the bad chunks before your LLM reads them</div>
+
+<script>
+document.fonts.ready.then(() => {
+  const word = document.getElementById('word');
+  const style = getComputedStyle(word);
+  const px = parseFloat(style.fontSize);
+
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = `${style.fontWeight} ${px}px ${style.fontFamily}`;
+  const xHeight = ctx.measureText('x').actualBoundingBoxAscent;
+  const m = ctx.measureText('ı');
+  const stem = m.actualBoundingBoxRight + m.actualBoundingBoxLeft;
+
+  const baseline = document.getElementById('base').getBoundingClientRect().top;
+  const iBox = document.getElementById('i').getBoundingClientRect();
+  const iCenter = iBox.left + iBox.width / 2;
+
+  const ruleH = 8, P = 66, gapCenter = 55;
+  const ruleTop = baseline - xHeight - px * 0.075 - ruleH;
+  const offset = (((iCenter - gapCenter) % P) + P) % P;
+
+  // Centre a gap under the tittle so it visibly can't fit through.
+  const rule = document.getElementById('rule');
+  rule.style.top = ruleTop + 'px';
+  rule.style.backgroundPositionX = offset + 'px';
+
+  const t = document.getElementById('tittle');
+  t.style.width = t.style.height = stem + 'px';
+  t.style.left = (iCenter - stem / 2) + 'px';
+  t.style.top = (ruleTop - stem + 2) + 'px';
+
+  // A few small clean bits slipping through gaps near the edges.
+  [[1, 34, 1], [1, 96, 0.45], [16, 52, 0.8]].forEach(([k, dy, op]) => {
+    const gx = offset + k * P + gapCenter;
+    const b = document.createElement('div');
+    b.className = 'bit';
+    Object.assign(b.style, { width: '12px', height: '12px', left: (gx - 6) + 'px', top: (ruleTop + ruleH + dy) + 'px', opacity: op });
+    document.body.appendChild(b);
+  });
+});
+</script>
+</body>
+</html>
