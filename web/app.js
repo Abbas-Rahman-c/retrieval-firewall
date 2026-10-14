@@ -193,8 +193,10 @@ async function run() {
       api.post("/ask", { user_id, query, mode: "baseline1", top_k: 5 }),
       api.post("/ask", { user_id, query, mode: "firewall", top_k: 5 }),
     ]);
-  } catch {
-    $("#stage-meta").textContent = "Could not reach the API.";
+  } catch (err) {
+    $("#stage-meta").textContent = err && err.status === 429
+      ? "Easy there — too many runs this minute. Try again shortly."
+      : "Could not reach the API.";
     return;
   }
   if (id !== state.runId) return;

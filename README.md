@@ -44,6 +44,16 @@ python benchmark/run.py                  # rebuild the dataset first with: pytho
 
 Cases alternate into a **dev** split, used to tune the rules, and a held-out **test** split, which is what we report. About half the cases reuse attack strings and questions written independently of the firewall, and results are broken down by origin. Current numbers are in [`results.json`](results.json).
 
+## Deploy
+
+The site and API are one FastAPI app, so the demo is a single web service.
+
+**Render (one click):** New → Blueprint → select this repo. `render.yaml` sets the build, start command and health check. Add `NEBIUS_API_KEY` and `FIREWALL_MODEL` in the Render dashboard to enable the LLM judges; without them Sieve runs on rules only.
+
+**Anything that runs containers** (Railway, Fly.io, Hugging Face Spaces): use the `Dockerfile`. It listens on `$PORT` (default 8000).
+
+A public URL is open to anyone, so the deploy ships with spend guards: `FIREWALL_MAX_LLM_CALLS` caps total LLM calls (after that Sieve falls back to rules), `RATE_LIMIT_PER_MIN` limits each visitor, and `ALLOWED_MODES` turns off Baseline 2, which would call Llama Guard on every chunk.
+
 ## How the firewall works
 
 `RetrievalFirewall.inspect(query, user, chunks, idp_state)` returns one verdict (`allow` / `redact` / `block`) per chunk, in three stages:

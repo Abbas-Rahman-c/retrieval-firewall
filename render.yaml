@@ -1,0 +1,25 @@
+# Render blueprint: New → Blueprint → pick this repo. Serves the site at / and the API alongside it.
+services:
+  - type: web
+    name: sieve
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn locus_mock.app:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      # Leave these empty to run Sieve on rules only. Set them in the Render dashboard, never in git.
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: FIREWALL_MODEL
+        sync: false
+      # Spend guards for a public URL.
+      - key: FIREWALL_MAX_LLM_CALLS
+        value: "3000"
+      - key: RATE_LIMIT_PER_MIN
+        value: "40"
+      - key: ALLOWED_MODES
+        value: "none,baseline1,firewall"

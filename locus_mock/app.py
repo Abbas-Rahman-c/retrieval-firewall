@@ -7,13 +7,16 @@ Site: http://localhost:8000      Docs: http://localhost:8000/docs
 from __future__ import annotations
 
 import json
+import os
+import threading
 import time
+from collections import defaultdict, deque
 from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -30,8 +33,36 @@ app = FastAPI(title="Mock RAG workspace + Retrieval Firewall", version="0.1.0")
 workspace = Workspace()
 _inspectors: dict[str, object] = {}
 
+# Public-deploy guards. Modes that spend credits can be switched off with ALLOWED_MODES.
+ALLOWED_MODES = {m.strip() for m in os.environ.get("ALLOWED_MODES", "none,baseline1,baseline2,firewall").split(",")}
+RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "40"))
+_hits: dict[str, deque] = defaultdict(deque)
+_hits_lock = threading.Lock()
+
+
+def rate_limit(request: Request) -> None:
+    """Sliding one-minute window per client IP on the endpoints that do work."""
+    if RATE_LIMIT_PER_MIN <= 0:
+        return
+    # Behind a proxy (Render, Railway), the client IP is the last X-Forwarded-For hop the proxy appended.
+    forwarded = request.headers.get("x-forwarded-for")
+    ip = forwarded.split(",")[-1].strip() if forwarded else (request.client.host if request.client else "unknown")
+    now = time.monotonic()
+    with _hits_lock:
+        q = _hits[ip]
+        while q and now - q[0] > 60:
+            q.popleft()
+        if len(q) >= RATE_LIMIT_PER_MIN:
+            raise HTTPException(429, "Too many requests, try again in a minute.")
+        q.append(now)
+        if len(_hits) > 10_000:  # drop idle clients so memory stays bounded
+            for k in [k for k, v in _hits.items() if not v or now - v[-1] > 60]:
+                del _hits[k]
+
 
 def get_inspector(mode: Mode):
+    if mode not in ALLOWED_MODES:
+        raise HTTPException(403, f"mode {mode!r} is disabled on this deployment")
     if mode not in _inspectors:
         if mode == "none":
             _inspectors[mode] = AllowAll()
@@ -81,14 +112,14 @@ def identity(user_id: str):
     return asdict(workspace.idp[user_id])
 
 
-@app.post("/retrieve")
+@app.post("/retrieve", dependencies=[Depends(rate_limit)])
 def retrieve(req: AskRequest):
     """Raw retrieval exactly as the RAG index returns it, before any firewall."""
     user = _user(req.user_id)
     return [{**asdict(h.chunk), "score": h.score} for h in workspace.retrieve(user, req.query, req.top_k)]
 
 
-@app.post("/ask")
+@app.post("/ask", dependencies=[Depends(rate_limit)])
 def ask(req: AskRequest):
     """Retrieve, run the chosen inspector, and return what the LLM would be allowed to see."""
     user = _user(req.user_id)

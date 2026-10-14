@@ -11,6 +11,7 @@ from tests.test_firewall import FakeClient
 def client(monkeypatch):
     # Heuristics-only firewall regardless of the developer's .env.
     monkeypatch.setitem(app_module._inspectors, "firewall", RetrievalFirewall(use_env=False))
+    app_module._hits.clear()
     return TestClient(app_module.app)
 
 
@@ -83,6 +84,24 @@ def test_site_and_results_are_served(client):
 
 def test_samples_have_tags_for_the_ui(client):
     assert all(s.get("tag") for s in client.get("/samples").json())
+
+
+def test_rate_limit_returns_429(client, monkeypatch):
+    monkeypatch.setattr(app_module, "RATE_LIMIT_PER_MIN", 3)
+    app_module._hits.clear()
+    body = {"user_id": "u_maya", "query": "deploy", "mode": "baseline1"}
+    codes = [client.post("/ask", json=body).status_code for _ in range(4)]
+    assert codes == [200, 200, 200, 429]
+    # Different client behind the proxy gets its own window.
+    other = client.post("/ask", json=body, headers={"x-forwarded-for": "203.0.113.9"})
+    assert other.status_code == 200
+    app_module._hits.clear()
+
+
+def test_disabled_mode_is_refused(client, monkeypatch):
+    monkeypatch.setattr(app_module, "ALLOWED_MODES", {"baseline1", "firewall"})
+    r = client.post("/ask", json={"user_id": "u_maya", "query": "deploy", "mode": "baseline2"})
+    assert r.status_code == 403
 
 
 def test_unknown_user_404(client):
