@@ -98,6 +98,17 @@ def test_rate_limit_returns_429(client, monkeypatch):
     app_module._hits.clear()
 
 
+def test_cloudflare_client_ip_wins_over_changing_edge_hops(client, monkeypatch):
+    monkeypatch.setattr(app_module, "RATE_LIMIT_PER_MIN", 2)
+    body = {"user_id": "u_maya", "query": "deploy", "mode": "baseline1"}
+    # Same visitor, a different Cloudflare edge hop on every request (what Render actually sees).
+    codes = [client.post("/ask", json=body, headers={"cf-connecting-ip": "198.51.100.4",
+                                                     "x-forwarded-for": f"198.51.100.4, 172.68.0.{i}"}).status_code
+             for i in range(3)]
+    assert codes == [200, 200, 429]
+    app_module._hits.clear()
+
+
 def test_disabled_mode_is_refused(client, monkeypatch):
     monkeypatch.setattr(app_module, "ALLOWED_MODES", {"baseline1", "firewall"})
     r = client.post("/ask", json={"user_id": "u_maya", "query": "deploy", "mode": "baseline2"})

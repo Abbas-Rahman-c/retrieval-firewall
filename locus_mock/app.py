@@ -40,13 +40,26 @@ _hits: dict[str, deque] = defaultdict(deque)
 _hits_lock = threading.Lock()
 
 
+def client_ip(request: Request) -> str:
+    """Best guess at the visitor's IP.
+
+    Render sits behind Cloudflare, which sets CF-Connecting-IP to the real client and overwrites any
+    value the client sends, so it can't be spoofed there. The last X-Forwarded-For hop is a Cloudflare
+    edge that changes per request, so it is only a fallback for other hosts.
+    """
+    for header in ("cf-connecting-ip", "true-client-ip"):
+        if value := request.headers.get(header):
+            return value.strip()
+    if forwarded := request.headers.get("x-forwarded-for"):
+        return forwarded.split(",")[-1].strip()
+    return request.client.host if request.client else "unknown"
+
+
 def rate_limit(request: Request) -> None:
     """Sliding one-minute window per client IP on the endpoints that do work."""
     if RATE_LIMIT_PER_MIN <= 0:
         return
-    # Behind a proxy (Render, Railway), the client IP is the last X-Forwarded-For hop the proxy appended.
-    forwarded = request.headers.get("x-forwarded-for")
-    ip = forwarded.split(",")[-1].strip() if forwarded else (request.client.host if request.client else "unknown")
+    ip = client_ip(request)
     now = time.monotonic()
     with _hits_lock:
         q = _hits[ip]
