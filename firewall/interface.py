@@ -61,6 +61,14 @@ class TestCase:
     chunks: list[Chunk]
     expected: dict[str, Action]
     idp_state: dict[str, IdentityState] = field(default_factory=dict)
+    # Strings that must not reach the LLM, per chunk (graded on secret/PII cases).
+    must_not_leak: dict[str, list[str]] = field(default_factory=dict)
+    # Where the case text came from, so results can be split by author.
+    origin: str = ""
+    # "all": every chunk expected to be stopped must be stopped (one leak is a breach).
+    # "any": stopping one is enough (e.g. aggregation, where removing one link breaks the inference).
+    catch: str = "all"
+    split: str = ""
 
 
 class Inspector(Protocol):
@@ -90,6 +98,10 @@ def load_cases(path: str | Path) -> list[TestCase]:
             chunks=[Chunk(**ch) for ch in c["chunks"]],
             expected=c["expected"],
             idp_state={uid: IdentityState(**s) for uid, s in c.get("idp_state", {}).items()},
+            must_not_leak=c.get("must_not_leak", {}),
+            origin=c.get("origin", ""),
+            catch=c.get("catch", "all"),
+            split=c.get("split", ""),
         )
         for c in raw
     ]

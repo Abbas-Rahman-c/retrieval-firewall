@@ -22,12 +22,17 @@ class LLMError(RuntimeError):
 
 
 class LLM:
-    def __init__(self, client, model: str, max_tokens: int = 400, timeout: float = 30.0):
+    def __init__(self, client, model: str, max_tokens: int = 400, timeout: float = 30.0,
+                 max_calls: int | None = None):
         self._client = client
         self.model = model
         self._max_tokens = max_tokens
         self._timeout = timeout
+        # Hard cap on calls for the lifetime of the process, so a public demo can't
+        # spend the whole credit balance. Once reached, the firewall falls back to rules.
+        self.max_calls = max_calls
         self._lock = threading.Lock()
+        self.attempts = 0
         self.calls = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
@@ -42,10 +47,15 @@ class LLM:
         from openai import OpenAI
 
         base_url = os.environ.get("FIREWALL_BASE_URL", DEFAULT_BASE_URL)
-        return cls(OpenAI(base_url=base_url, api_key=key), model)
+        cap = os.environ.get("FIREWALL_MAX_LLM_CALLS")
+        return cls(OpenAI(base_url=base_url, api_key=key), model, max_calls=int(cap) if cap else None)
 
     def judge(self, system: str, user: str) -> dict:
         """Run one judgement call and parse the JSON object it returns."""
+        with self._lock:
+            if self.max_calls is not None and self.attempts >= self.max_calls:
+                raise LLMError(f"LLM call budget of {self.max_calls} exhausted")
+            self.attempts += 1
         try:
             resp = self._client.chat.completions.create(
                 model=self.model,
