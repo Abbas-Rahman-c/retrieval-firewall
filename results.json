@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-27T16:46:34+00:00",
-  "commit": "5ceddcd",
+  "generated_at": "2026-10-27T17:27:12+00:00",
+  "commit": "813f818",
   "dataset": {
     "path": "dataset/cases.json",
     "sha256": "ccad7367ca65",
@@ -18,7 +18,7 @@
         "over_blocking_rate": 0.0,
         "latency_ms": {
           "p50": 0.0,
-          "p95": 0.01
+          "p95": 0.0
         },
         "llm_calls_per_request": 0.0,
         "attack_cases": 77,
@@ -147,7 +147,7 @@
           "over_blocking_rate": 0.0,
           "latency_ms": {
             "p50": 0.0,
-            "p95": 0.01
+            "p95": 0.0
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 44,
@@ -238,7 +238,7 @@
           "over_blocking_rate": 0.0,
           "latency_ms": {
             "p50": 0.0,
-            "p95": 0.01
+            "p95": 0.0
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 77,
@@ -366,7 +366,7 @@
           "over_blocking_rate": 0.0,
           "latency_ms": {
             "p50": 0.0,
-            "p95": 0.01
+            "p95": 0.0
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 121,
@@ -542,8 +542,8 @@
         "false_positive_rate": 0.0,
         "over_blocking_rate": 0.0,
         "latency_ms": {
-          "p50": 0.01,
-          "p95": 0.01
+          "p50": 0.0,
+          "p95": 0.0
         },
         "llm_calls_per_request": 0.0,
         "attack_cases": 77,
@@ -671,8 +671,8 @@
           "false_positive_rate": 0.0,
           "over_blocking_rate": 0.0,
           "latency_ms": {
-            "p50": 0.01,
-            "p95": 0.01
+            "p50": 0.0,
+            "p95": 0.0
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 44,
@@ -762,8 +762,8 @@
           "false_positive_rate": 0.0,
           "over_blocking_rate": 0.0,
           "latency_ms": {
-            "p50": 0.01,
-            "p95": 0.01
+            "p50": 0.0,
+            "p95": 0.0
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 77,
@@ -890,8 +890,8 @@
           "false_positive_rate": 0.0,
           "over_blocking_rate": 0.0,
           "latency_ms": {
-            "p50": 0.01,
-            "p95": 0.01
+            "p50": 0.0,
+            "p95": 0.0
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 121,
@@ -1067,8 +1067,8 @@
         "false_positive_rate": 12.2,
         "over_blocking_rate": 9.0,
         "latency_ms": {
-          "p50": 1.73,
-          "p95": 7.89
+          "p50": 0.47,
+          "p95": 1.18
         },
         "llm_calls_per_request": 0.0,
         "attack_cases": 77,
@@ -1157,8 +1157,8 @@
           "false_positive_rate": 0.0,
           "over_blocking_rate": 0.0,
           "latency_ms": {
-            "p50": 1.87,
-            "p95": 7.08
+            "p50": 0.54,
+            "p95": 1.33
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 44,
@@ -1209,8 +1209,8 @@
           "false_positive_rate": 12.2,
           "over_blocking_rate": 9.0,
           "latency_ms": {
-            "p50": 1.73,
-            "p95": 7.89
+            "p50": 0.47,
+            "p95": 1.18
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 77,
@@ -1298,8 +1298,8 @@
           "false_positive_rate": 6.8,
           "over_blocking_rate": 5.3,
           "latency_ms": {
-            "p50": 1.78,
-            "p95": 7.77
+            "p50": 0.5,
+            "p95": 1.23
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 121,
