@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlencode
 
 import edge_tts
 import imageio_ffmpeg
@@ -208,8 +209,8 @@ def run_scene(d: Director, name: str):
             time.sleep(2.2)
             d.move_to(f'.steps .step:nth-child({i})')
     elif name == "close":
-        line = "Don&#39;t trust retrieval. <em>Verify it.</em>"
-        p.goto((HERE / "slides" / "title.html").as_uri() + f"?line={line}&url=github.com/Abbas-Rahman-c/retrieval-firewall")
+        query = urlencode({"line": "Don't trust retrieval. <em>Verify it.</em>", "url": "github.com/Abbas-Rahman-c/retrieval-firewall"})
+        p.goto((HERE / "slides" / "title.html").as_uri() + "?" + query)
 
 
 def record(lengths: dict[str, float]) -> tuple[Path, dict[str, float]]:
@@ -221,6 +222,13 @@ def record(lengths: dict[str, float]) -> tuple[Path, dict[str, float]]:
                                   record_video_size={"width": W, "height": H}, reduced_motion="no-preference")
         ctx.add_init_script(CURSOR)
         page = ctx.new_page()
+        t_video = time.monotonic()  # the recording starts here; everything before t0 is trimmed in the mix
+        # Warm the font cache so the first scene doesn't open on a blank screen, then start on a dark page.
+        page.goto((HERE / "slides" / "title.html").as_uri())
+        page.evaluate("document.fonts.ready")
+        page.goto(SITE)
+        page.wait_for_load_state("networkidle")
+        page.set_content('<body style="margin:0;background:#0B0C0D"></body>')
         t0 = time.monotonic()
         d = Director(page)
         time.sleep(0.6)
@@ -234,9 +242,13 @@ def record(lengths: dict[str, float]) -> tuple[Path, dict[str, float]]:
             time.sleep(max(0.0, remaining))
             print(f"  shot  {name:<10} at {offsets[name]:6.1f}s")
         time.sleep(1.0)
+        offsets["_end"] = time.monotonic() - t0
+        offsets["_trim"] = t0 - t_video
         video = Path(page.video.path())
         ctx.close()
         browser.close()
+    # Saved so the mix can be redone without re-recording: python make_video.py --mix-only
+    (OUT / "take.json").write_text(json.dumps({"video": str(video), "offsets": offsets}, indent=1), encoding="utf-8")
     return video, offsets
 
 
@@ -248,14 +260,24 @@ def mix(video: Path, offsets: dict[str, float], out: Path):
     for n in names:
         cmd += ["-i", str(AUDIO / f"{n}.mp3")]
     delays = "".join(f"[{i + 1}:a]adelay={int(offsets[n] * 1000)}:all=1[a{i}];" for i, n in enumerate(names))
-    mixed = "".join(f"[a{i}]" for i in range(len(names))) + f"amix=inputs={len(names)}:normalize=0,apad[a]"  # pad so the video, not the voice, sets the length
-    cmd += ["-filter_complex", "[0:v]scale=1920:1080:flags=lanczos[v];" + delays + mixed, "-map", "[v]", "-map", "[a]",
-            "-c:v", "libx264", "-preset", "slow", "-crf", "18",
-            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", str(out)]
-    subprocess.run(cmd, check=True, capture_output=True)
+    end = offsets["_end"]  # Playwright's webm has no duration header, so use the recorded wall time
+    # Pad the voice track to exactly the video's length: an unbounded apad never lets ffmpeg finish.
+    mixed = "".join(f"[a{i}]" for i in range(len(names))) + f"amix=inputs={len(names)}:normalize=0,apad=whole_dur={end:.2f}[a]"
+    trim = offsets.get("_trim", 0.0)  # drop the recorded warm-up so picture and voice share time zero
+    video_chain = f"[0:v]trim=start={trim:.3f},setpts=PTS-STARTPTS,scale=1920:1080:flags=lanczos[v];"
+    cmd += ["-filter_complex", video_chain + delays + mixed, "-map", "[v]", "-map", "[a]",
+            "-t", f"{end:.2f}", "-c:v", "libx264", "-preset", "slow", "-crf", "18",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)]
+    subprocess.run(cmd, check=True, capture_output=True, timeout=900)
 
 
 def main():
+    if "--mix-only" in sys.argv:
+        take = json.loads((OUT / "take.json").read_text(encoding="utf-8"))
+        out = OUT / "sieve-demo.mp4"
+        mix(Path(take["video"]), take["offsets"], out)
+        print(f"done: {out} ({duration(out):.0f}s)")
+        return
     print("1/3 voiceover")
     lengths = asyncio.run(synthesize())
     total = sum(lengths.values()) + PAD_AFTER * len(lengths)
