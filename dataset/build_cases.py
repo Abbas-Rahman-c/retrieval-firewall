@@ -334,7 +334,7 @@ def convert_fresh(c: dict) -> dict:
         chunks.append({"id": ch["id"], "text": ch["text"], "source": ch.get("source", ""),
                        "acl": acls.get(ch["id"], []), "min_clearance": 0, "uploader_trust": trust})
 
-    chunk_ids = {ch["id"] for ch in chunks}
+    chunk_ids = [ch["id"] for ch in chunks]  # a list, not a set: cases.json must build identically every run
     exp = c["expected_action"]
     expected = {cid: exp.get(cid, "allow") for cid in chunk_ids}
     catch = "all"
