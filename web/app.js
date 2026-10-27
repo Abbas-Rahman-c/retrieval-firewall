@@ -315,9 +315,13 @@ async function initResults() {
     </div>`).join("");
 
   const mode = fw.mode === "llm" ? "rules + LLM judges" : "rules only (LLM judges not enabled for this run)";
+  const fresh = t.by_origin && t.by_origin["teammate-fresh"];
+  const freshLine = fresh
+    ? `On the cases a teammate wrote without seeing the firewall, ${fresh.attack_success_rate}% of attacks got through ` +
+      `and ${fresh.false_positive_rate}% of benign cases were altered — the honest measure, and where the LLM judges come in. `
+    : "";
   $("#fineprint").innerHTML =
-    `Sieve ran in <b>${mode}</b>. Dev split: ${fw.splits.dev.attack_success_rate}% of attacks got through. ` +
-    `Roughly half the cases reuse attack strings and questions written independently of the firewall. ` +
+    `Sieve ran in <b>${mode}</b>. ${freshLine}Dev split, which the rules were tuned on: ${fw.splits.dev.attack_success_rate}% got through. ` +
     `${res.dataset.cases} cases total · run ${res.generated_at.slice(0, 10)} on commit <code>${esc(res.commit)}</code>.`;
 
   let shown = false;

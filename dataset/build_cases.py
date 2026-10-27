@@ -281,6 +281,83 @@ for i, text in enumerate(HARD_NEGATIVES):
         {"c1": "allow", "c2": "allow"}, "authors", subtype="hard_negative")
 
 
+# 7. Fresh cases written independently of the firewall (dataset/fresh_cases.json) -------
+#
+# The teammate wrote these without seeing firewall/ and in her own format. They are converted
+# here, never edited in place, and reported under their own origin ("teammate-fresh").
+
+FRESH_CATEGORIES = {
+    "prompt_injection": "injection", "secrets": "secrets_pii", "poisoned_docs": "poisoning",
+    "stale_permissions": "stale_permissions", "aggregation": "aggregation", "benign": "benign",
+}
+INACTIVE = {"deactivated", "contract_expired", "internship_ended"}
+
+# The stale-permission cases describe the access change in free-text identity notes and
+# mostly carry no ACL on the restricted document. Our schema needs both sides structurally,
+# so each case's notes are translated here, one line per case. Everything else is mechanical.
+STALE_ACCESS = {
+    # case id: (role the index still has, ACL on the restricted chunk c2)
+    "fresh_stale_01": ("exec", ["exec"]),              # permission: exec_only; user left the company
+    "fresh_stale_02": ("contractor-access", ["contractor-access"]),  # contract expired, access revoked
+    "fresh_stale_03": ("finance-intern", ["finance-intern"]),        # internship ended
+    "fresh_stale_04": ("finance", ["finance"]),        # previous_role finance, current marketing
+    "fresh_stale_05": ("hr", ["hr"]),                  # terminated
+    "fresh_stale_06": ("guest-access", ["guest-access"]),            # guest access expired
+    "fresh_stale_07": ("admin", ["admin"]),            # was_admin true, now_admin false
+}
+
+
+def convert_fresh(c: dict) -> dict:
+    category = FRESH_CATEGORIES[c["type"]]
+    uid = c["user"]["id"]
+    base_roles = [r for r in (c["user"].get("role"), c["user"].get("department")) if r]
+    notes = c.get("idp_state", {})
+    status = notes.get(uid, "active")
+    revoked = bool(notes.get("access_revoked") or notes.get("access_expired") or notes.get("role_revoked"))
+    active = status not in INACTIVE and not (revoked and category == "stale_permissions" and status != "active")
+
+    index_roles, live_roles = list(base_roles), list(base_roles)
+    acls = {}
+    if category == "stale_permissions":
+        stale_role, acl = STALE_ACCESS[c["id"]]
+        index_roles.append(stale_role)
+        acls["c2"] = acl
+        if notes.get("access_expired"):
+            active = False
+        if notes.get("current_role"):
+            live_roles = [r for r in live_roles if r != notes.get("previous_role")]
+
+    chunks = []
+    for ch in c["retrieved_chunks"]:
+        meta = ch.get("metadata", {})
+        trust = meta.get("trust") if meta.get("trust") in ("high", "medium", "low") else "medium"
+        chunks.append({"id": ch["id"], "text": ch["text"], "source": ch.get("source", ""),
+                       "acl": acls.get(ch["id"], []), "min_clearance": 0, "uploader_trust": trust})
+
+    chunk_ids = {ch["id"] for ch in chunks}
+    exp = c["expected_action"]
+    expected = {cid: exp.get(cid, "allow") for cid in chunk_ids}
+    catch = "all"
+    # "c1+c2": "block" style keys mean the combination must not reach the LLM: stopping any one part is enough.
+    if any(k not in chunk_ids and v == "block" for k, v in exp.items()):
+        expected = {cid: "block" for cid in chunk_ids}
+        catch = "any"
+
+    return {
+        "id": c["id"], "category": category, "malicious": category != "benign",
+        "origin": "teammate-fresh", "split": "test", "query": c.get("query", "What do these documents say?"),
+        "user": {"id": uid, "roles": index_roles, "clearance": 0},
+        "idp_state": {uid: {"roles": live_roles if active else [], "active": active}},
+        "chunks": chunks, "expected": expected, "catch": catch,
+        "must_not_leak": c.get("must_not_leak", {}),
+    }
+
+
+FRESH_PATH = HERE / "fresh_cases.json"
+if FRESH_PATH.exists():
+    cases += [convert_fresh(c) for c in json.loads(FRESH_PATH.read_text(encoding="utf-8"))]
+
+
 if __name__ == "__main__":
     out = HERE / "cases.json"
     out.write_text(json.dumps(cases, indent=1, ensure_ascii=False), encoding="utf-8")
