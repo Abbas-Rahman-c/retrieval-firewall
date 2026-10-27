@@ -5,6 +5,8 @@
 **Tagline (≤200 chars):**
 Your RAG trusts every chunk it retrieves. Sieve doesn't. An AI security agent that blocks injections, poisoned docs, stale access and leaked secrets before your LLM reads a word.
 
+**Team:** Abbas Rahman, Humayun Arshad, Sunaina Babar
+
 **Links:** demo https://sieve-cms2.onrender.com · code https://github.com/Abbas-Rahman-c/retrieval-firewall
 
 ---

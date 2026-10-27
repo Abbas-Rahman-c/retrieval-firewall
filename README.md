@@ -8,6 +8,10 @@ Sieve is a security agent that sits between a RAG retriever and the LLM. It insp
 
 Built for the Nebius x NVIDIA hackathon (Agents track).
 
+## Team
+
+Built together by **Abbas Rahman**, **Humayun Arshad** and **Sunaina Babar** for the Nebius × NVIDIA Global AI Hackathon.
+
 ## Layout
 
 | Folder | What lives there |

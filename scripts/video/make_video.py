@@ -30,6 +30,7 @@ OUT = ROOT / "out"
 AUDIO = OUT / "audio"
 SITE = "http://localhost:8000"
 VOICE, RATE = "en-US-AndrewNeural", "+3%"
+TEAM = "Abbas Rahman · Humayun Arshad · Sunaina Babar"
 W, H = 1600, 900
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
@@ -41,7 +42,8 @@ stale_stopped = round(100 - fw["by_category"]["stale_permissions"]["attack_succe
 n_cases = res["dataset"]["cases"]
 
 SCENES = [
-    ("title", "This is Sieve. It catches the bad chunks before your LLM reads them."),
+    ("title", "This is Sieve, a team project by Abbas Rahman, Humayun Arshad and Sunaina Babar. "
+              "It catches the bad chunks before your LLM reads them."),
     ("problem", "Retrieval augmented generation trusts every chunk the retriever returns. Most RAG stacks only check "
                 "metadata, like the access tags copied into the index. They never read what a chunk actually says. "
                 "So a hidden instruction, a fake policy, a stale permission, or a leaked key goes straight into the model."),
@@ -70,11 +72,11 @@ SCENES = [
     ("how", "That is what the agent's second stage is for. Cheap checks run on every chunk. Only the risky ones are "
             "escalated to LLM judges, within a fixed budget, falling back to rules if the model is unavailable. "
             "The judges are built and wired in. Running them on Nemotron is our next step."),
-    ("close", "Sieve. Don't trust retrieval. Verify it."),
+    ("close", "Sieve. Built together by Abbas, Humayun and Sunaina. Don't trust retrieval. Verify it."),
 ]
 
 PAD_AFTER = 0.55  # breathing room between scenes
-HOLD = {"close": 3.5}  # extra seconds to hold a scene after its voiceover ends
+HOLD = {"title": 1.0, "close": 4.0}  # extra seconds to hold a scene after its voiceover ends
 
 
 # 1. Voiceover ----------------------------------------------------------------------------
@@ -166,7 +168,7 @@ class Director:
 def run_scene(d: Director, name: str):
     p = d.page
     if name == "title":
-        p.goto((HERE / "slides" / "title.html").as_uri())
+        p.goto((HERE / "slides" / "title.html").as_uri() + "?" + urlencode({"team": TEAM}))
     elif name == "problem":
         p.goto((HERE / "slides" / "problem.html").as_uri())
     elif name == "hero":
@@ -209,7 +211,8 @@ def run_scene(d: Director, name: str):
             time.sleep(2.2)
             d.move_to(f'.steps .step:nth-child({i})')
     elif name == "close":
-        query = urlencode({"line": "Don't trust retrieval. <em>Verify it.</em>", "url": "github.com/Abbas-Rahman-c/retrieval-firewall"})
+        query = urlencode({"line": "Don't trust retrieval. <em>Verify it.</em>", "team": TEAM,
+                           "url": "github.com/Abbas-Rahman-c/retrieval-firewall"})
         p.goto((HERE / "slides" / "title.html").as_uri() + "?" + query)
 
 
@@ -260,10 +263,14 @@ def mix(video: Path, offsets: dict[str, float], out: Path):
     for n in names:
         cmd += ["-i", str(AUDIO / f"{n}.mp3")]
     delays = "".join(f"[{i + 1}:a]adelay={int(offsets[n] * 1000)}:all=1[a{i}];" for i, n in enumerate(names))
-    end = offsets["_end"]  # Playwright's webm has no duration header, so use the recorded wall time
+    trim = offsets.get("_trim", 0.0)
+    # Playwright drops the last frames when the browser closes, so end at the last real frame, not the wall clock.
+    decoded = subprocess.run([FFMPEG, "-i", str(video), "-map", "0:v", "-f", "null", "-"], capture_output=True, text=True).stderr
+    h, m, sec = re.findall(r"time=(\d+):(\d+):([\d.]+)", decoded)[-1]
+    end = min(offsets["_end"], int(h) * 3600 + int(m) * 60 + float(sec) - trim - 0.05)
     # Pad the voice track to exactly the video's length: an unbounded apad never lets ffmpeg finish.
     mixed = "".join(f"[a{i}]" for i in range(len(names))) + f"amix=inputs={len(names)}:normalize=0,apad=whole_dur={end:.2f}[a]"
-    trim = offsets.get("_trim", 0.0)  # drop the recorded warm-up so picture and voice share time zero
+    # trim drops the recorded warm-up so picture and voice share time zero
     video_chain = f"[0:v]trim=start={trim:.3f},setpts=PTS-STARTPTS,scale=1920:1080:flags=lanczos[v];"
     cmd += ["-filter_complex", video_chain + delays + mixed, "-map", "[v]", "-map", "[a]",
             "-t", f"{end:.2f}", "-c:v", "libx264", "-preset", "slow", "-crf", "18",
