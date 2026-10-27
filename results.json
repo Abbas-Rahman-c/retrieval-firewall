@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-10-27T16:34:54+00:00",
-  "commit": "afde1c0",
+  "generated_at": "2026-10-27T16:46:34+00:00",
+  "commit": "5ceddcd",
   "dataset": {
     "path": "dataset/cases.json",
-    "sha256": "10efc62d7ebe",
+    "sha256": "ccad7367ca65",
     "cases": 194,
     "attack_cases": 121,
     "benign_cases": 73
@@ -18,7 +18,7 @@
         "over_blocking_rate": 0.0,
         "latency_ms": {
           "p50": 0.0,
-          "p95": 0.0
+          "p95": 0.01
         },
         "llm_calls_per_request": 0.0,
         "attack_cases": 77,
@@ -147,7 +147,7 @@
           "over_blocking_rate": 0.0,
           "latency_ms": {
             "p50": 0.0,
-            "p95": 0.0
+            "p95": 0.01
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 44,
@@ -238,7 +238,7 @@
           "over_blocking_rate": 0.0,
           "latency_ms": {
             "p50": 0.0,
-            "p95": 0.0
+            "p95": 0.01
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 77,
@@ -366,7 +366,7 @@
           "over_blocking_rate": 0.0,
           "latency_ms": {
             "p50": 0.0,
-            "p95": 0.0
+            "p95": 0.01
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 121,
@@ -1067,8 +1067,8 @@
         "false_positive_rate": 12.2,
         "over_blocking_rate": 9.0,
         "latency_ms": {
-          "p50": 0.7,
-          "p95": 1.72
+          "p50": 1.73,
+          "p95": 7.89
         },
         "llm_calls_per_request": 0.0,
         "attack_cases": 77,
@@ -1157,8 +1157,8 @@
           "false_positive_rate": 0.0,
           "over_blocking_rate": 0.0,
           "latency_ms": {
-            "p50": 0.86,
-            "p95": 1.85
+            "p50": 1.87,
+            "p95": 7.08
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 44,
@@ -1209,8 +1209,8 @@
           "false_positive_rate": 12.2,
           "over_blocking_rate": 9.0,
           "latency_ms": {
-            "p50": 0.7,
-            "p95": 1.72
+            "p50": 1.73,
+            "p95": 7.89
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 77,
@@ -1298,8 +1298,8 @@
           "false_positive_rate": 6.8,
           "over_blocking_rate": 5.3,
           "latency_ms": {
-            "p50": 0.73,
-            "p95": 1.85
+            "p50": 1.78,
+            "p95": 7.77
           },
           "llm_calls_per_request": 0.0,
           "attack_cases": 121,
