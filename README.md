@@ -6,11 +6,17 @@
 
 Sieve is a security agent that sits between a RAG retriever and the LLM. It inspects every retrieved chunk before the model sees it and blocks or redacts anything unsafe: prompt injection, aggregation leaks, stale permissions, secrets/PII and poisoned documents.
 
-Built for the Nebius x NVIDIA hackathon (Agents track).
+**Live demo:** https://sieve-cms2.onrender.com · **Video:** https://www.youtube.com/watch?v=6jv9gqlvEyw
 
 ## Team
 
 Built together by **Abbas Rahman**, **Humayun Arshad** and **Sunaina Babar** for the Nebius × NVIDIA Global AI Hackathon.
+
+## Nebius Token Factory and NVIDIA Nemotron
+
+Sieve's LLM judges (injection, poisoning and aggregation) call an OpenAI-compatible endpoint, configured for **Nebius Token Factory** by default (`firewall/llm.py`), and are designed to run on an **NVIDIA Nemotron** model chosen via `FIREWALL_MODEL`. Only flagged chunks are escalated, under a per-request budget and a process-wide cap, so a cheap model is enough.
+
+**Current status:** the benchmark numbers and the live demo above run on Sieve's rules alone; the LLM judges are implemented and covered by tests with a stand-in model, but have not yet been run against Token Factory. To enable them, set `NEBIUS_API_KEY` and `FIREWALL_MODEL` in `.env` (see `scripts/list_models.py`) and re-run `python benchmark/run.py`.
 
 ## Layout
 
@@ -18,7 +24,7 @@ Built together by **Abbas Rahman**, **Humayun Arshad** and **Sunaina Babar** for
 | --- | --- |
 | `firewall/` | The agent: checks, LLM judges, policy, baselines |
 | `locus_mock/` | Mock RAG workspace API with fictional data for the demo |
-| `dataset/` | `build_cases.py` → `cases.json`: 149 attack and benign cases, split dev/test |
+| `dataset/` | `build_cases.py` → `cases.json`: 194 attack and benign cases, split dev/test |
 | `benchmark/` | `run.py`: runs every setup over the dataset and writes `results.json` |
 | `web/` | The demo site (plain HTML/CSS/JS, served by the API): playground, results, how it works |
 
@@ -85,3 +91,7 @@ uvicorn locus_mock.app:app --reload --port 8000   # site at /, docs at /docs
 | `POST /ask` | `{user_id, query, mode, top_k}` → retrieved chunks, per-chunk verdicts, the context the LLM may see, trace and stats. `mode` is `none`, `baseline1`, `baseline2` or `firewall` |
 
 Never commit `.env` or real Locus AI data. This repo will be made public for submission.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
