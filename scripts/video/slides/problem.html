@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #0B0C0D; color: #EEE9DE; font-family: Geist, "Segoe UI", sans-serif; }
+  .wrap { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 140px; box-sizing: border-box; }
+  .eyebrow { font: 15px "Geist Mono", monospace; letter-spacing: .16em; color: #8A9096; text-transform: uppercase; margin-bottom: 28px; }
+  h1 { font-size: 64px; line-height: 1.05; letter-spacing: -.04em; margin: 0 0 56px; font-weight: 600; max-width: 1100px; }
+  h1 span { color: #5E646A; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #1D2023; border: 1px solid #1D2023; border-radius: 14px; overflow: hidden; }
+  li { background: #101213; padding: 26px 24px 28px; opacity: 0; transform: translateY(12px); animation: up .7s cubic-bezier(.2,.7,.1,1) forwards; }
+  li b { display: block; font-size: 20px; font-weight: 600; letter-spacing: -.01em; margin: 14px 0 8px; }
+  li span { color: #8A9096; font-size: 15.5px; line-height: 1.5; }
+  li i { display: inline-block; width: 12px; height: 12px; background: #FF4A3D; transform: rotate(-7deg); }
+  @keyframes up { to { opacity: 1; transform: none; } }
+</style></head>
+<body><div class="wrap">
+  <div class="eyebrow">The problem</div>
+  <h1>Most RAG stacks check metadata.<br><span>They never read the chunk.</span></h1>
+  <ul>
+    <li style="animation-delay:.6s"><i></i><b>Prompt injection</b><span>Instructions hidden in a document.</span></li>
+    <li style="animation-delay:.9s"><i></i><b>Poisoned docs</b><span>Fake “official” advice planted by an uploader.</span></li>
+    <li style="animation-delay:1.2s"><i></i><b>Stale access</b><span>The index still thinks you have the role.</span></li>
+    <li style="animation-delay:1.5s"><i></i><b>Leaked secrets</b><span>Keys and personal data in plain text.</span></li>
+    <li style="animation-delay:1.8s"><i></i><b>Aggregation</b><span>Harmless alone, revealing together.</span></li>
+  </ul>
+</div></body></html>

@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@600&family=Geist+Mono&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #0B0C0D; color: #EEE9DE; overflow: hidden; }
+  .wrap { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .rule { position: absolute; left: 0; right: 0; height: 7px; top: 352px;
+          background: repeating-linear-gradient(90deg, #EEE9DE 0 40px, transparent 40px 60px); transform-origin: left; animation: draw .9s cubic-bezier(.2,.7,.1,1) both; }
+  .word { font: 600 240px/1 Geist, "Segoe UI", sans-serif; letter-spacing: -.05em; position: relative; margin-top: 60px; opacity: 0; animation: up .7s .15s cubic-bezier(.2,.7,.1,1) forwards; }
+  .word .i { position: relative; display: inline-block; }
+  .dot { position: absolute; left: 50%; top: -88px; width: 40px; height: 40px; background: #FF4A3D;
+         transform: translateX(-50%) rotate(-7deg); animation: drop .7s .5s cubic-bezier(.3,1.4,.5,1) both; }
+  .line { font: 22px "Geist Mono", monospace; color: #8A9096; margin-top: 48px; opacity: 0; animation: up .7s .8s forwards; }
+  .line em { font: italic 30px "Instrument Serif", serif; color: #FF4A3D; }
+  .url { font: 17px "Geist Mono", monospace; color: #5E646A; margin-top: 18px; opacity: 0; animation: up .7s 1.0s forwards; }
+  @keyframes draw { from { transform: scaleX(0); } }
+  @keyframes up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes drop { from { transform: translate(-50%, -260px) rotate(30deg); opacity: 0; } 60% { opacity: 1; } }
+</style></head>
+<body>
+  <div class="rule"></div>
+  <div class="wrap">
+    <div class="word">s<span class="i">ı<span class="dot"></span></span>eve</div>
+    <div class="line" id="line">catches the bad chunks before your LLM reads them</div>
+    <div class="url" id="url"></div>
+  </div>
+<script>
+  const p = new URLSearchParams(location.search);
+  if (p.get("line")) document.getElementById("line").innerHTML = p.get("line");
+  if (p.get("url")) document.getElementById("url").textContent = p.get("url");
+</script>
+</body></html>
