@@ -36,10 +36,11 @@ FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
 res = json.loads((ROOT / "results.json").read_text(encoding="utf-8"))
 fw, base = res["setups"]["firewall"]["test"], res["setups"]["baseline1"]["test"]
+rules = res["setups"].get("firewall_rules", {}).get("test", fw)
 fresh = fw["by_origin"].get("teammate-fresh", {})
-stopped = round(100 - fw["attack_success_rate"])
-stale_stopped = round(100 - fw["by_category"]["stale_permissions"]["attack_success_rate"])
+fresh_rules = rules["by_origin"].get("teammate-fresh", {})
 n_cases = res["dataset"]["cases"]
+pct = lambda x: f"{x:.0f}" if x >= 10 or x == int(x) else f"{x:.1f}".rstrip("0").rstrip(".")
 
 SCENES = [
     ("title", "This is Sieve, a team project by Abbas Rahman, Humayun Arshad and Sunaina Babar. "
@@ -61,17 +62,17 @@ SCENES = [
               "returns the Q3 review. Sieve re-checks the live identity provider, sees the account is deactivated, "
               "and blocks it."),
     ("trace", "And every decision is traceable: what was checked, what it scored, and why."),
-    ("results", f"We benchmarked it on {n_cases} cases across all five attack types, and report a held-out test split. "
-                f"Metadata filtering lets {round(base['attack_success_rate'])} percent of attacks through. "
-                f"Sieve, on rules alone, stops {stopped} percent, including {stale_stopped} percent of stale permission attacks, "
-                f"in under a millisecond."),
-    ("honest", f"Then a teammate wrote 45 new cases without ever looking at the firewall. On those, "
-               f"{round(fresh.get('attack_success_rate', 0))} percent of attacks got through, and "
-               f"{round(fresh.get('false_positive_rate', 0))} percent of the tricky benign documents were flagged. "
-               f"We publish that number, because it shows exactly where rules end."),
-    ("how", "That is what the agent's second stage is for. Cheap checks run on every chunk. Only the risky ones are "
-            "escalated to LLM judges, within a fixed budget, falling back to rules if the model is unavailable. "
-            "The judges are built and wired in. Running them on Nemotron is our next step."),
+    ("results", f"We benchmarked it on {n_cases} cases across all five attack types, on a held-out test split. "
+                f"Metadata filtering lets {pct(base['attack_success_rate'])} percent of attacks through. Sieve's rules alone let "
+                f"{pct(rules['attack_success_rate'])} percent through. With its Nemotron judges running on Nebius Token Factory, "
+                f"just {pct(fw['attack_success_rate'])} percent get through."),
+    ("honest", f"We also had a teammate write 45 cases without ever seeing the firewall. On rules alone, "
+               f"{pct(fresh_rules.get('attack_success_rate', 0))} percent of those attacks got through. With Nemotron, "
+               f"{pct(fresh.get('attack_success_rate', 0))} percent. Its weak spot is still false positives on security "
+               f"training material, and we say so."),
+    ("how", "Here is how the agent works. Cheap rules check every chunk. Only the risky ones, and anything from an "
+            "untrusted source, go to Nemotron 3 Nano, with its reasoning switched off for speed. The judge can add a "
+            "block, but never overrule a strong rule signal. And if the model is down, the rules still decide."),
     ("close", "Sieve. Built together by Abbas, Humayun and Sunaina. Don't trust retrieval. Verify it."),
 ]
 
@@ -231,6 +232,12 @@ def record(lengths: dict[str, float]) -> tuple[Path, dict[str, float]]:
         page.evaluate("document.fonts.ready")
         page.goto(SITE)
         page.wait_for_load_state("networkidle")
+        page.evaluate("""async () => {
+            const samples = await (await fetch('/samples')).json();
+            for (const s of samples) for (const mode of ['baseline1', 'firewall'])
+                await fetch('/ask', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                     body: JSON.stringify({user_id: s.user_id, query: s.query, mode, top_k: 5})});
+        }""")
         page.set_content('<body style="margin:0;background:#0B0C0D"></body>')
         t0 = time.monotonic()
         d = Director(page)
