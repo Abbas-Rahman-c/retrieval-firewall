@@ -298,30 +298,40 @@ async function initResults() {
   const fw = res.setups.firewall, b1 = res.setups.baseline1;
   if (!fw || !b1) return;
   const t = fw.test, bt = b1.test;
-
+  const rules = res.setups.firewall_rules && res.setups.firewall_rules.test;
+  const llm = fw.mode === "llm";
   $("#results-sub").textContent =
-    `${t.attack_cases} attacks and ${t.benign_cases} benign cases from a held-out split the rules were never tuned on.`;
-  $("#lat-cap").textContent = `p95 ${t.latency_ms.p95.toFixed(1)} ms · ${t.llm_calls_per_request} LLM calls per request`;
+    `${t.attack_cases} attacks and ${t.benign_cases} benign cases from a held-out split the system was never tuned on.`;
+  const secs = t.latency_ms.p50 >= 1000;
+  $("#lat-cap").textContent = `p95 ${secs ? (t.latency_ms.p95 / 1000).toFixed(1) + " s" : t.latency_ms.p95.toFixed(1) + " ms"} · ` +
+    `${t.llm_calls_per_request} ${llm ? "Nemotron" : "LLM"} calls per request`;
+  if (rules && llm) $("#bars-legend").hidden = false;
 
   const rows = Object.entries(t.by_category)
-    .map(([k, m]) => ({ k, name: NAMES[k] || k, stopped: 100 - m.attack_success_rate, n: m.n }))
+    .map(([k, m]) => ({ k, name: NAMES[k] || k, stopped: 100 - m.attack_success_rate, n: m.n,
+                        rules: rules && rules.by_category[k] ? 100 - rules.by_category[k].attack_success_rate : null }))
     .sort((a, b) => b.stopped - a.stopped);
   $("#bars").innerHTML = rows.map((r) => `
     <div class="bar-row" role="row">
       <span class="name" role="cell">${esc(r.name)}<span class="n">${r.n} test cases</span></span>
-      <div class="bar-track" role="cell"><div class="bar-fill" data-w="${r.stopped}"></div></div>
+      <div class="bar-track" role="cell">${r.rules !== null && llm ? `<div class="bar-ghost" data-w="${r.rules}"></div>` : ""}<div class="bar-fill" data-w="${r.stopped}"></div></div>
       <span class="val" role="cell">${Math.round(r.stopped)}%</span>
-      <span class="tip">${Math.round(r.stopped * r.n / 100)} of ${r.n} stopped · metadata filter: 0</span>
+      <span class="tip">${Math.round(r.stopped * r.n / 100)} of ${r.n} stopped${r.rules !== null && llm ? ` · rules only: ${Math.round(r.rules)}%` : ""} · metadata filter: 0</span>
     </div>`).join("");
 
-  const mode = fw.mode === "llm" ? "rules + LLM judges" : "rules only (LLM judges not enabled for this run)";
   const fresh = t.by_origin && t.by_origin["teammate-fresh"];
+  const rulesFresh = rules && rules.by_origin["teammate-fresh"];
   const freshLine = fresh
-    ? `On the cases a teammate wrote without seeing the firewall, ${fresh.attack_success_rate}% of attacks got through ` +
-      `and ${fresh.false_positive_rate}% of benign cases were altered — the honest measure, and where the LLM judges come in. `
+    ? `On the cases a teammate wrote without seeing the firewall, <b>${fresh.attack_success_rate}%</b> of attacks got through` +
+      (rulesFresh && llm ? ` (rules only: ${rulesFresh.attack_success_rate}%)` : "") +
+      `, and ${fresh.false_positive_rate}% of those tricky benign documents were still altered — our main known weakness. `
     : "";
+  const modeLine = llm
+    ? `Sieve ran with its LLM judges on <b>NVIDIA Nemotron 3 Nano via Nebius Token Factory</b>` +
+      (rules ? `; the same agent on rules alone let ${rules.attack_success_rate}% of attacks through. ` : ". ")
+    : `Sieve ran on <b>rules only</b> (LLM judges not enabled for this run). `;
   $("#fineprint").innerHTML =
-    `Sieve ran in <b>${mode}</b>. ${freshLine}Dev split, which the rules were tuned on: ${fw.splits.dev.attack_success_rate}% got through. ` +
+    modeLine + freshLine +
     `${res.dataset.cases} cases total · run ${res.generated_at.slice(0, 10)} on commit <code>${esc(res.commit)}</code>.`;
 
   let shown = false;
@@ -331,8 +341,10 @@ async function initResults() {
     countUp($("#asr-sieve"), t.attack_success_rate, "%");
     countUp($("#asr-base"), bt.attack_success_rate, "%");
     countUp($("#fpr"), t.false_positive_rate, "%");
-    countUp($("#lat"), t.latency_ms.p50, " ms", 1);
-    document.querySelectorAll(".bar-fill").forEach((b, i) => setTimeout(() => (b.style.width = b.dataset.w + "%"), 200 + i * 120));
+    if (secs) countUp($("#lat"), t.latency_ms.p50 / 1000, " s", 1);
+    else countUp($("#lat"), t.latency_ms.p50, " ms", 1);
+    document.querySelectorAll(".bar-ghost").forEach((b, i) => setTimeout(() => { b.style.left = b.dataset.w + "%"; b.style.opacity = 1; }, 100 + i * 120));
+    document.querySelectorAll(".bar-fill").forEach((b, i) => setTimeout(() => (b.style.width = b.dataset.w + "%"), 500 + i * 120));
   }, { threshold: 0.3 }).observe($("#results"));
 }
 

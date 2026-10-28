@@ -211,6 +211,14 @@ select:focus, textarea:focus { border-color: var(--muted); box-shadow: 0 0 0 3px
 .bar-track { height: 10px; background: var(--panel-2); border-radius: 0 4px 4px 0; position: relative; overflow: visible; }
 .bar-track::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), var(--line-2) calc(25% - 1px) 25%); opacity: .7; }
 .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--text); border-radius: 0 4px 4px 0; transition: width 1.2s var(--ease); }
+.bar-ghost { position: absolute; left: 0; top: -5px; width: 3px; height: 20px; margin-left: -1.5px; background: var(--red);
+  border-radius: 2px; z-index: 2; opacity: 0; transition: left 1.2s var(--ease), opacity .4s; box-shadow: 0 0 0 2px var(--panel); }
+.legend { display: inline-flex; align-items: center; gap: 8px; }
+.legend[hidden] { display: none; }
+.key { display: inline-block; width: 14px; height: 8px; border-radius: 0 2px 2px 0; margin-left: 10px; }
+.key:first-child { margin-left: 0; }
+.key-fill { background: var(--text); }
+.key-ghost { background: var(--red); width: 3px; height: 12px; border-radius: 2px; }
 .bar-row .val { font: 500 14px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
 .bar-row .tip {
   position: absolute; right: 72px; top: -30px; background: var(--text); color: var(--bg); font: 11.5px var(--mono);

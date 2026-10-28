@@ -39,6 +39,7 @@ LABELS = {
     "baseline1": "Metadata filtering only",
     "baseline2": "Metadata + Llama Guard",
     "firewall": "Sieve",
+    "firewall_rules": "Sieve, rules only",
 }
 
 
@@ -51,6 +52,8 @@ def build_setup(name: str):
         return MetadataPlusGuard()  # raises RuntimeError when not configured
     if name == "firewall":
         return RetrievalFirewall()
+    if name == "firewall_rules":
+        return RetrievalFirewall(use_env=False)  # same agent with no LLM: the rules on their own
     raise ValueError(f"unknown setup {name!r}")
 
 
@@ -152,7 +155,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cases", default=str(ROOT / "dataset" / "cases.json"))
     ap.add_argument("--out", default=str(ROOT / "results.json"))
-    ap.add_argument("--setups", default="none,baseline1,baseline2,firewall")
+    ap.add_argument("--setups", default="none,baseline1,baseline2,firewall_rules,firewall")
+    ap.add_argument("--merge", action="store_true",
+                    help="add these setups to an existing results file (same dataset) instead of replacing it")
     args = ap.parse_args()
 
     cases = load_cases(args.cases)
@@ -186,6 +191,14 @@ def main() -> None:
                       f"false positives {m['false_positive_rate']:>5}%  over-blocking {m['over_blocking_rate']:>5}%  "
                       f"p50 {m['latency_ms']['p50']} ms  ({r['mode']})")
 
+    if args.merge and Path(args.out).exists():
+        prev = json.loads(Path(args.out).read_text(encoding="utf-8"))
+        if prev["dataset"]["sha256"] != results["dataset"]["sha256"]:
+            sys.exit("cannot merge: results file was built from a different dataset")
+        prev["setups"].update(results["setups"])
+        prev.setdefault("merged", []).append({"setups": list(results["setups"]), "commit": results["commit"],
+                                              "generated_at": results["generated_at"]})
+        results = prev
     Path(args.out).write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(f"wrote {args.out}")
 
