@@ -49,6 +49,10 @@ class Policy:
     # Without an LLM to judge, withhold sensitive chunks that link to others.
     aggregation_fail_closed: bool = True
     max_llm_calls: int = 6
+    # With a judge available, also screen chunks from non-high-trust sources that the rules scored zero.
+    llm_screen_untrusted: bool = True
+    # With a judge available, check every multi-chunk set for aggregation, not only what the rule gate flags.
+    llm_always_judge_aggregation: bool = True
 
 
 @dataclass
@@ -139,11 +143,16 @@ class RetrievalFirewall:
             if inj >= p.injection_escalate_at:
                 tasks.append((inj, "injection", s))
 
+            elif self.llm and p.llm_screen_untrusted and s.chunk.uploader_trust != "high":
+                tasks.append((0.0, "injection", s))  # rules saw nothing; let the judge read it anyway
+
             risk = s.poisoning.risk
             if s.chunk.uploader_trust != "high" and risk >= p.poison_escalate_at:
                 # Low-trust sources are more suspicious for the same claims.
                 weight = risk + (0.2 if s.chunk.uploader_trust == "low" else 0.0)
                 tasks.append((weight, "poisoning", s))
+            elif self.llm and p.llm_screen_untrusted and s.chunk.uploader_trust != "high":
+                tasks.append((0.0, "poisoning", s))
 
         tasks.sort(key=lambda t: t[0], reverse=True)
         # Keep one call in reserve for the aggregation judge.
@@ -173,8 +182,7 @@ class RetrievalFirewall:
         if kind == "injection" and s.injection.score >= p.injection_offline_block_at:
             s.block(f"prompt injection (score {s.injection.score})")
         elif kind == "poisoning":
-            limit = p.poison_escalate_at if s.chunk.uploader_trust == "low" else p.poison_offline_block_at
-            if s.poisoning.risk >= limit:
+            if s.poisoning.risk >= self._poison_limit(s):
                 s.block(f"likely poisoned document ({s.chunk.uploader_trust}-trust source, risk {s.poisoning.risk})")
         self._log(kind, s, f"heuristic decision: {s.action}")
 
@@ -202,11 +210,16 @@ class RetrievalFirewall:
                     s.reasons.append(f"prompt injection removed: {reason}")
                 else:
                     s.block(f"prompt injection: {reason}")
+            elif s.injection.score >= self.policy.injection_offline_block_at:
+                # Defense in depth: the judge can add a block, never veto a strong rule signal.
+                s.block(f"prompt injection (score {s.injection.score}; judge disagreed: {reason})")
             else:
                 s.evidence.append(f"LLM cleared injection signals: {reason}")
         else:
             if r.get("verdict") == "poisoned" and confident:
                 s.block(f"likely poisoned document: {reason}")
+            elif s.poisoning.risk >= self._poison_limit(s):
+                s.block(f"likely poisoned document (risk {s.poisoning.risk}; judge disagreed: {reason})")
             else:
                 s.evidence.append(f"LLM judged source legitimate: {reason}")
         self._log(kind, s, f"LLM verdict {r.get('verdict')} ({r.get('confidence')}): {reason}")
@@ -232,7 +245,10 @@ class RetrievalFirewall:
             return
         visible = {s.chunk.id: s for s in states if s.action != "block"}
         risky, why, candidates = aggregation_risk({cid: s.text for cid, s in visible.items()})
-        if not risky:
+        # The rule gate only spots shared IDs and names near sensitive words. With a judge available,
+        # any multi-chunk answer to a low-clearance user is worth one call: inference rarely announces itself.
+        judge_anyway = self.llm and self.policy.llm_always_judge_aggregation and len(visible) >= 2 and self._budget > 0
+        if not (risky or judge_anyway):
             return
         if not self.llm or self._budget <= 0:
             if self.policy.aggregation_fail_closed:
@@ -245,7 +261,8 @@ class RetrievalFirewall:
             return
 
         self._budget -= 1
-        listing = "\n\n".join(f"Chunk {cid}:\n{fence('CHUNK', s.text)}" for cid, s in visible.items())
+        fenced = {cid: fence("CHUNK", s.text) for cid, s in visible.items()}
+        listing = "\n\n".join(f"Chunk id: {cid}\n{block}" for cid, block in fenced.items())
         body = (f"User roles: {', '.join(user.roles) or 'none'}; clearance level {user.clearance} (0 = lowest).\n"
                 f"Question: {fence('QUERY', query)}\n\n{listing}")
         try:
@@ -255,12 +272,29 @@ class RetrievalFirewall:
             return
 
         if r.get("leak") is True:
-            withhold = [cid for cid in r.get("withhold", []) if cid in visible]
-            for cid in withhold or list(visible)[-1:]:
+            withhold = [cid for cid in (self._resolve_chunk_id(x, fenced) for x in r.get("withhold", [])) if cid]
+            # A leak with no usable ids: fall back to the rules' choice of linking sensitive chunks.
+            fallback = [cid for cid in aggregation_risk({c: s.text for c, s in visible.items()})[2] if cid in visible]
+            for cid in withhold or fallback or list(visible)[-1:]:
                 visible[cid].block(f"aggregation: {r.get('reason', '')} (could infer: {r.get('inferred', '')})")
         self._log("aggregation", None, f"leak={r.get('leak')} withhold={r.get('withhold')}: {r.get('reason')}")
 
     # Helpers ---------------------------------------------------------------
+
+    def _poison_limit(self, s: _ChunkState) -> float:
+        p = self.policy
+        return p.poison_escalate_at if s.chunk.uploader_trust == "low" else p.poison_offline_block_at
+
+    @staticmethod
+    def _resolve_chunk_id(value, fenced: dict[str, str]) -> str | None:
+        """Map a model's reference back to a chunk id. Models sometimes echo the fence tag instead."""
+        value = str(value).strip()
+        if value in fenced:
+            return value
+        for cid, block in fenced.items():
+            if value and value in block.split("\n", 1)[0]:
+                return cid
+        return None
 
     def _live_roles(self, user: User, idp_state) -> set[str]:
         live = (idp_state or {}).get(user.id)

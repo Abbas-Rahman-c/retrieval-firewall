@@ -22,8 +22,8 @@ class LLMError(RuntimeError):
 
 
 class LLM:
-    def __init__(self, client, model: str, max_tokens: int = 400, timeout: float = 30.0,
-                 max_calls: int | None = None):
+    def __init__(self, client, model: str, max_tokens: int = 600, timeout: float = 30.0,
+                 max_calls: int | None = None, thinking: bool = False):
         self._client = client
         self.model = model
         self._max_tokens = max_tokens
@@ -31,6 +31,10 @@ class LLM:
         # Hard cap on calls for the lifetime of the process, so a public demo can't
         # spend the whole credit balance. Once reached, the firewall falls back to rules.
         self.max_calls = max_calls
+        # Nemotron 3 reasons before answering by default. For short JSON verdicts that spends the
+        # whole token budget on hidden reasoning (empty replies) and triples latency, so it is off
+        # unless FIREWALL_THINKING=1. Models whose template rejects the switch get it dropped once.
+        self._extra_body = None if thinking else {"chat_template_kwargs": {"enable_thinking": False}}
         self._lock = threading.Lock()
         self.attempts = 0
         self.calls = 0
@@ -48,7 +52,9 @@ class LLM:
 
         base_url = os.environ.get("FIREWALL_BASE_URL", DEFAULT_BASE_URL)
         cap = os.environ.get("FIREWALL_MAX_LLM_CALLS")
-        return cls(OpenAI(base_url=base_url, api_key=key), model, max_calls=int(cap) if cap else None)
+        thinking = os.environ.get("FIREWALL_THINKING", "").lower() in ("1", "true", "yes")
+        return cls(OpenAI(base_url=base_url, api_key=key), model, max_calls=int(cap) if cap else None,
+                   thinking=thinking)
 
     def judge(self, system: str, user: str) -> dict:
         """Run one judgement call and parse the JSON object it returns."""
@@ -57,13 +63,7 @@ class LLM:
                 raise LLMError(f"LLM call budget of {self.max_calls} exhausted")
             self.attempts += 1
         try:
-            resp = self._client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                max_tokens=self._max_tokens,
-                temperature=0,
-                timeout=self._timeout,
-            )
+            resp = self._create(system, user)
         except Exception as e:  # network, auth, rate limit: caller falls back to heuristics
             raise LLMError(f"LLM call failed: {e}") from e
 
@@ -75,6 +75,23 @@ class LLM:
                 self.completion_tokens += getattr(usage, "completion_tokens", 0) or 0
 
         return parse_json_object(resp.choices[0].message.content or "")
+
+    def _create(self, system: str, user: str):
+        kwargs = dict(
+            model=self.model,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            max_tokens=self._max_tokens,
+            temperature=0,
+            timeout=self._timeout,
+        )
+        if self._extra_body:
+            try:
+                return self._client.chat.completions.create(**kwargs, extra_body=self._extra_body)
+            except Exception as e:
+                if "chat_template_kwargs" not in str(e) and "enable_thinking" not in str(e):
+                    raise
+                self._extra_body = None  # this model's template doesn't take the switch
+        return self._client.chat.completions.create(**kwargs)
 
 
 def parse_json_object(text: str) -> dict:
