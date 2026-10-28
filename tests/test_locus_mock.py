@@ -12,6 +12,7 @@ def client(monkeypatch):
     # Heuristics-only firewall regardless of the developer's .env.
     monkeypatch.setitem(app_module._inspectors, "firewall", RetrievalFirewall(use_env=False))
     app_module._hits.clear()
+    app_module._cache.clear()
     return TestClient(app_module.app)
 
 
@@ -113,6 +114,16 @@ def test_disabled_mode_is_refused(client, monkeypatch):
     monkeypatch.setattr(app_module, "ALLOWED_MODES", {"baseline1", "firewall"})
     r = client.post("/ask", json={"user_id": "u_maya", "query": "deploy", "mode": "baseline2"})
     assert r.status_code == 403
+
+
+def test_repeat_question_is_served_from_cache(client):
+    first, _ = ask(client, "u_maya", "Should I disable MFA during deployments?")
+    again = client.post("/ask", json={"user_id": "u_maya", "query": "  should I disable MFA during deployments? ",
+                                      "mode": "firewall"}).json()
+    assert first["cached"] is False and again["cached"] is True
+    assert again["verdicts"] == first["verdicts"] and again["stats"] == first["stats"]
+    other_mode, _ = ask(client, "u_maya", "Should I disable MFA during deployments?", mode="baseline1")
+    assert other_mode["cached"] is False
 
 
 def test_unknown_user_404(client):

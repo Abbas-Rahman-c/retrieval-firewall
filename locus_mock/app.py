@@ -10,7 +10,7 @@ import json
 import os
 import threading
 import time
-from collections import defaultdict, deque
+from collections import OrderedDict, defaultdict, deque
 from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
@@ -37,6 +37,10 @@ _inspectors: dict[str, object] = {}
 ALLOWED_MODES = {m.strip() for m in os.environ.get("ALLOWED_MODES", "none,baseline1,baseline2,firewall").split(",")}
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "40"))
 _hits: dict[str, deque] = defaultdict(deque)
+CACHE_SIZE = 512
+_cache: "OrderedDict[tuple, dict]" = OrderedDict()
+_cache_lock = threading.Lock()
+_mode_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
 _hits_lock = threading.Lock()
 
 
@@ -136,24 +140,41 @@ def retrieve(req: AskRequest):
 def ask(req: AskRequest):
     """Retrieve, run the chosen inspector, and return what the LLM would be allowed to see."""
     user = _user(req.user_id)
+    key = (req.user_id, " ".join(req.query.lower().split()), req.mode, req.top_k)
+    with _cache_lock:
+        if key in _cache:
+            _cache.move_to_end(key)
+            return {**_cache[key], "cached": True}
+
     hits = workspace.retrieve(user, req.query, req.top_k)
     chunks = [h.chunk for h in hits]
     inspector = get_inspector(req.mode)
 
-    started = time.perf_counter()
-    verdicts = inspector.inspect(req.query, user, chunks, workspace.idp)
-    latency_ms = round((time.perf_counter() - started) * 1000, 1)
+    # The inspector keeps the last request's trace on itself, so one request at a time per mode.
+    with _mode_locks[req.mode]:
+        started = time.perf_counter()
+        verdicts = inspector.inspect(req.query, user, chunks, workspace.idp)
+        latency_ms = round((time.perf_counter() - started) * 1000, 1)
+        trace = list(getattr(inspector, "last_trace", []))
+        stats = {**getattr(inspector, "last_stats", {}), "latency_ms": latency_ms}
 
-    return {
+    body = {
         "user": {**asdict(user), "name": workspace.user_names[user.id]},
         "query": req.query,
         "mode": req.mode,
         "retrieved": [{**asdict(h.chunk), "score": h.score} for h in hits],
         "verdicts": [asdict(v) for v in verdicts],
         "context": [v.text for v in verdicts if v.action != "block"],
-        "trace": getattr(inspector, "last_trace", []),
-        "stats": {**getattr(inspector, "last_stats", {}), "latency_ms": latency_ms},
+        "trace": trace,
+        "stats": stats,
     }
+    # The workspace is static, so the same question gets the same answer: cache it. Saves LLM credits on
+    # the public demo; "stats" keeps the latency of the run that produced it.
+    with _cache_lock:
+        _cache[key] = body
+        while len(_cache) > CACHE_SIZE:
+            _cache.popitem(last=False)
+    return {**body, "cached": False}
 
 
 @app.get("/results")

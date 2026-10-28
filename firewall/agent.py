@@ -271,7 +271,8 @@ class RetrievalFirewall:
             self._log("aggregation", None, f"LLM unavailable ({e}); set released unjudged")
             return
 
-        if r.get("leak") is True:
+        # Only act on a leak the judge itself rates as high sensitivity: related-but-harmless facts stay.
+        if r.get("leak") is True and str(r.get("sensitivity", "high")).lower() == "high":
             withhold = [cid for cid in (self._resolve_chunk_id(x, fenced) for x in r.get("withhold", [])) if cid]
             # A leak with no usable ids: fall back to the rules' choice of linking sensitive chunks.
             fallback = [cid for cid in aggregation_risk({c: s.text for c, s in visible.items()})[2] if cid in visible]
