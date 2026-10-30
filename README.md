@@ -8,6 +8,10 @@ Sieve is a security agent that sits between a RAG retriever and the LLM. It insp
 
 **Live demo:** https://sieve-cms2.onrender.com · **Video:** https://www.youtube.com/watch?v=DSsQXIzT86c
 
+**Try it:** open the live demo, scroll to **Playground** and pick a scenario. The same retrieval runs with and without Sieve, and each chunk shows its decision and the reason. Below, a poisoned "disable MFA" tip is blocked by Nemotron while the official policy still reaches the model.
+
+![Sieve playground: the poisoned tip is blocked, official docs are allowed](docs/playground.png)
+
 ## Team
 
 Built together by **Abbas Rahman**, **Humayun Arshad** and **Sunaina Babar** for the Nebius × NVIDIA Global AI Hackathon.
